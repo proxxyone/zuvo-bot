@@ -15,6 +15,19 @@ async function sendMessage(chatId, text) {
         text: text
     });
 }
+const { GoogleSpreadsheet } = require("google-spreadsheet");
+const creds = require("./credentials.json");
+
+async function testSheet() {
+    const doc = new GoogleSpreadsheet("YOUR_SHEET_ID");
+
+    await doc.useServiceAccountAuth(creds);
+    await doc.loadInfo();
+
+    console.log("Sheet loaded:", doc.title);
+}
+
+testSheet();
 function searchParcel(chatId, tracking) {
     const sheetData = [1GYfhmascc_5uXf6Wm8jvkvoadH7ALCopKZOfUul7iaY
         ["ZUVO1001", "Ahmed", "Delivered"],
