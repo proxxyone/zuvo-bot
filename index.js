@@ -38,7 +38,12 @@ app.post("/webhook", async (req, res) => {
     else {
         await sendMessage(chatId, "You said: " + text);
     }
-
+else if (text.startsWith("/track")) {
+    sendMessage(chatId, "🔍 Send your tracking number");
+}
+else if (userState === "tracking") {
+    searchParcel(chatId, text);
+}
     res.sendStatus(200);
 });
 
