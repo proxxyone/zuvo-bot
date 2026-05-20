@@ -18,8 +18,7 @@ async function getSheet() {
     await doc.useServiceAccountAuth(creds);
     await doc.loadInfo();
 
-    const sheet = doc.sheetsByIndex[0]; // first sheet
-    return sheet;
+    return doc.sheetsByIndex[0];
 }
 
 // ===================== SEND MESSAGE =====================
@@ -27,7 +26,7 @@ async function sendMessage(chatId, text) {
     try {
         await axios.post(`${TELEGRAM_API}/sendMessage`, {
             chat_id: chatId,
-            text: text,
+            text,
             parse_mode: "HTML"
         });
     } catch (err) {
@@ -40,9 +39,6 @@ app.post("/webhook", async (req, res) => {
     try {
         const update = req.body;
 
-        console.log("🔥 WEBHOOK HIT");
-        console.log(JSON.stringify(update));
-
         if (!update.message || !update.message.text) {
             return res.sendStatus(200);
         }
@@ -50,31 +46,21 @@ app.post("/webhook", async (req, res) => {
         const chatId = update.message.chat.id;
         const text = update.message.text.trim().toUpperCase();
 
-        // ===================== COMMANDS =====================
-
+        // ---------------- COMMANDS ----------------
         if (text === "/START") {
-            await sendMessage(
-                chatId,
-                "🚚 <b>Welcome to ZUVO Parcel Bot</b>\n\nSend /track then your tracking number."
-            );
+            return sendMessage(chatId, "🚚 Welcome to ZUVO Bot\n\nSend /TRACK + tracking number");
         }
 
-        else if (text === "/HELP") {
-            await sendMessage(
-                chatId,
-                "📦 Commands:\n/start\n/help\n/track"
-            );
+        if (text === "/HELP") {
+            return sendMessage(chatId, "/start /help /track");
         }
 
-        else if (text === "/TRACK") {
-            await sendMessage(
-                chatId,
-                "🔍 Send your tracking number (Example: ZUVO1001)"
-            );
+        if (text === "/TRACK") {
+            return sendMessage(chatId, "🔍 Send tracking number (ZUVO1001)");
         }
 
-        // ===================== TRACKING =====================
-        else if (text.startsWith("ZUVO")) {
+        // ---------------- TRACKING ----------------
+        if (text.startsWith("ZUVO")) {
             try {
                 const sheet = await getSheet();
                 const rows = await sheet.getRows();
@@ -87,8 +73,7 @@ app.post("/webhook", async (req, res) => {
                     return sendMessage(chatId, "❌ Parcel not found");
                 }
 
-                await sendMessage(
-                    chatId,
+                return sendMessage(chatId,
                     `📦 <b>Parcel Found</b>\n\n` +
                     `Tracking: ${parcel.Tracking}\n` +
                     `Name: ${parcel.Name}\n` +
@@ -99,11 +84,11 @@ app.post("/webhook", async (req, res) => {
 
             } catch (err) {
                 console.log("Sheet error:", err.message);
-                await sendMessage(chatId, "❌ Error reading sheet");
+                return sendMessage(chatId, "❌ Error reading sheet");
             }
         }
 
-        res.sendStatus(200);
+        return res.sendStatus(200);
 
     } catch (err) {
         console.log("Webhook error:", err.message);
@@ -111,12 +96,12 @@ app.post("/webhook", async (req, res) => {
     }
 });
 
-// ===================== HEALTH CHECK =====================
+// ===================== HOME =====================
 app.get("/", (req, res) => {
-    res.send("🚚 ZUVO Bot is running ✅");
+    res.send("🚚 ZUVO Bot running ✅");
 });
 
-// ===================== START SERVER =====================
+// ===================== START =====================
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log("Bot running on port " + PORT);
