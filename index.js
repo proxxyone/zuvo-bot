@@ -1,12 +1,26 @@
+require("dotenv").config();
 const express = require("express");
 const axios = require("axios");
-require("dotenv").config();
+const { GoogleSpreadsheet } = require("google-spreadsheet");
+const creds = require("./credentials.json");
 
 const app = express();
 app.use(express.json());
 
 const TOKEN = process.env.BOT_TOKEN;
 const TELEGRAM_API = `https://api.telegram.org/bot${TOKEN}`;
+const SHEET_ID = "1GYfhmascc_5uXf6Wm8jvkvoadH7ALCopKZOfUul7iaY";
+
+// ===================== GOOGLE SHEET =====================
+async function getSheet() {
+    const doc = new GoogleSpreadsheet(SHEET_ID);
+
+    await doc.useServiceAccountAuth(creds);
+    await doc.loadInfo();
+
+    const sheet = doc.sheetsByIndex[0]; // first sheet
+    return sheet;
+}
 
 // ===================== SEND MESSAGE =====================
 async function sendMessage(chatId, text) {
@@ -21,7 +35,7 @@ async function sendMessage(chatId, text) {
     }
 }
 
-// ===================== MAIN WEBHOOK =====================
+// ===================== WEBHOOK =====================
 app.post("/webhook", async (req, res) => {
     try {
         const update = req.body;
@@ -34,49 +48,65 @@ app.post("/webhook", async (req, res) => {
         }
 
         const chatId = update.message.chat.id;
-        const text = update.message.text.trim();
+        const text = update.message.text.trim().toUpperCase();
 
         // ===================== COMMANDS =====================
 
-        if (text === "/start") {
+        if (text === "/START") {
             await sendMessage(
                 chatId,
-                "🚚 <b>Welcome to ZUVO Parcel Bot</b>\n\nSend /track to track your parcel."
+                "🚚 <b>Welcome to ZUVO Parcel Bot</b>\n\nSend /track then your tracking number."
             );
         }
 
-        else if (text === "/help") {
+        else if (text === "/HELP") {
             await sendMessage(
                 chatId,
                 "📦 Commands:\n/start\n/help\n/track"
             );
         }
 
-        else if (text === "/track") {
+        else if (text === "/TRACK") {
             await sendMessage(
                 chatId,
-                "🔍 Please send your tracking number"
+                "🔍 Send your tracking number (Example: ZUVO1001)"
             );
         }
 
-        // ===================== SIMPLE TRACK TEST =====================
+        // ===================== TRACKING =====================
         else if (text.startsWith("ZUVO")) {
-            await sendMessage(
-                chatId,
-                `📦 Parcel Found!\n\nTracking: ${text}\nStatus: In System (Demo)`
-            );
-        }
+            try {
+                const sheet = await getSheet();
+                const rows = await sheet.getRows();
 
-        else {
-            await sendMessage(
-                chatId,
-                `You said: ${text}`
-            );
+                const parcel = rows.find(r =>
+                    String(r.Tracking).trim().toUpperCase() === text
+                );
+
+                if (!parcel) {
+                    return sendMessage(chatId, "❌ Parcel not found");
+                }
+
+                await sendMessage(
+                    chatId,
+                    `📦 <b>Parcel Found</b>\n\n` +
+                    `Tracking: ${parcel.Tracking}\n` +
+                    `Name: ${parcel.Name}\n` +
+                    `Status: ${parcel.Status}\n` +
+                    `Location: ${parcel.Location}\n` +
+                    `Delivery: ${parcel.Delivery}`
+                );
+
+            } catch (err) {
+                console.log("Sheet error:", err.message);
+                await sendMessage(chatId, "❌ Error reading sheet");
+            }
         }
 
         res.sendStatus(200);
-    } catch (error) {
-        console.log("Webhook error:", error.message);
+
+    } catch (err) {
+        console.log("Webhook error:", err.message);
         res.sendStatus(200);
     }
 });
