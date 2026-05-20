@@ -15,7 +15,25 @@ async function sendMessage(chatId, text) {
         text: text
     });
 }
+function searchParcel(chatId, tracking) {
+    const sheetData = [1GYfhmascc_5uXf6Wm8jvkvoadH7ALCopKZOfUul7iaY
+        ["ZUVO1001", "Ahmed", "Delivered"],
+        ["ZUVO1002", "Ali", "In Transit"]
+    ];
 
+    const result = sheetData.find(p => p[0] === tracking);
+
+    if (!result) {
+        return sendMessage(chatId, "❌ Not found");
+    }
+
+    sendMessage(chatId,
+        `📦 Found Parcel\n\n` +
+        `Tracking: ${result[0]}\n` +
+        `Name: ${result[1]}\n` +
+        `Status: ${result[2]}`
+    );
+}
 // webhook route (Telegram sends messages here)
 app.post("/webhook", async (req, res) => {
     const update = req.body;
