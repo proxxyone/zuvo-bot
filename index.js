@@ -8,82 +8,85 @@ app.use(express.json());
 const TOKEN = process.env.BOT_TOKEN;
 const TELEGRAM_API = `https://api.telegram.org/bot${TOKEN}`;
 
-// send message function
+// ===================== SEND MESSAGE =====================
 async function sendMessage(chatId, text) {
-    await axios.post(`${TELEGRAM_API}/sendMessage`, {
-        chat_id: chatId,
-        text: text
-    });
-}
-const { GoogleSpreadsheet } = require("google-spreadsheet");
-const creds = require("./credentials.json");
-
-async function testSheet() {
-    const doc = new GoogleSpreadsheet("YOUR_SHEET_ID");
-
-    await doc.useServiceAccountAuth(creds);
-    await doc.loadInfo();
-
-    console.log("Sheet loaded:", doc.title);
-}
-
-testSheet();
-function searchParcel(chatId, tracking) {
-    const sheetData = [1GYfhmascc_5uXf6Wm8jvkvoadH7ALCopKZOfUul7iaY
-        ["ZUVO1001", "Ahmed", "Delivered"],
-        ["ZUVO1002", "Ali", "In Transit"]
-    ];
-
-    const result = sheetData.find(p => p[0] === tracking);
-
-    if (!result) {
-        return sendMessage(chatId, "❌ Not found");
+    try {
+        await axios.post(`${TELEGRAM_API}/sendMessage`, {
+            chat_id: chatId,
+            text: text,
+            parse_mode: "HTML"
+        });
+    } catch (err) {
+        console.log("Send error:", err.message);
     }
-
-    sendMessage(chatId,
-        `📦 Found Parcel\n\n` +
-        `Tracking: ${result[0]}\n` +
-        `Name: ${result[1]}\n` +
-        `Status: ${result[2]}`
-    );
 }
-// webhook route (Telegram sends messages here)
+
+// ===================== MAIN WEBHOOK =====================
 app.post("/webhook", async (req, res) => {
-    const update = req.body;
+    try {
+        const update = req.body;
 
-    console.log("Update received:", JSON.stringify(update));
+        console.log("🔥 WEBHOOK HIT");
+        console.log(JSON.stringify(update));
 
-    if (!update.message || !update.message.text) {
-        return res.sendStatus(200);
-    }
+        if (!update.message || !update.message.text) {
+            return res.sendStatus(200);
+        }
 
-    const chatId = update.message.chat.id;
-    const text = update.message.text;
+        const chatId = update.message.chat.id;
+        const text = update.message.text.trim();
 
-    if (text === "/start") {
-        await sendMessage(chatId, "🚚 Welcome to ZUVO Parcel Bot!");
+        // ===================== COMMANDS =====================
+
+        if (text === "/start") {
+            await sendMessage(
+                chatId,
+                "🚚 <b>Welcome to ZUVO Parcel Bot</b>\n\nSend /track to track your parcel."
+            );
+        }
+
+        else if (text === "/help") {
+            await sendMessage(
+                chatId,
+                "📦 Commands:\n/start\n/help\n/track"
+            );
+        }
+
+        else if (text === "/track") {
+            await sendMessage(
+                chatId,
+                "🔍 Please send your tracking number"
+            );
+        }
+
+        // ===================== SIMPLE TRACK TEST =====================
+        else if (text.startsWith("ZUVO")) {
+            await sendMessage(
+                chatId,
+                `📦 Parcel Found!\n\nTracking: ${text}\nStatus: In System (Demo)`
+            );
+        }
+
+        else {
+            await sendMessage(
+                chatId,
+                `You said: ${text}`
+            );
+        }
+
+        res.sendStatus(200);
+    } catch (error) {
+        console.log("Webhook error:", error.message);
+        res.sendStatus(200);
     }
-    else if (text === "/help") {
-        await sendMessage(chatId, "Commands: /track /phone /help");
-    }
-    else {
-        await sendMessage(chatId, "You said: " + text);
-    }
-else if (text.startsWith("/track")) {
-    sendMessage(chatId, "🔍 Send your tracking number");
-}
-else if (userState === "tracking") {
-    searchParcel(chatId, text);
-}
-    res.sendStatus(200);
 });
 
-// health check (to test server)
+// ===================== HEALTH CHECK =====================
 app.get("/", (req, res) => {
-    res.send("ZUVO Bot is running ✅");
+    res.send("🚚 ZUVO Bot is running ✅");
 });
 
-// start server
+// ===================== START SERVER =====================
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log("Bot running on port " + PORT);
